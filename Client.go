@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"image"
 	"image/color"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -16,6 +15,8 @@ import (
 	"gioui.org/io/system"
 	"gioui.org/layout"
 	"gioui.org/op"
+	"gioui.org/op/clip"
+	"gioui.org/op/paint"
 	"gioui.org/text"
 	"gioui.org/unit"
 	"gioui.org/widget"
@@ -26,7 +27,7 @@ import (
 type Command struct {
 	Operation  string            `json:"operation"`
 	Parameters map[string]string `json:"parameters"`
-	Timestamp  time.Time        `json:"timestamp"`
+	Timestamp  time.Time         `json:"timestamp"`
 }
 
 type Response struct {
@@ -57,18 +58,18 @@ func newTerminal() *Terminal {
 			Timeout:   30 * time.Second,
 		},
 	}
-	
+
 	// Set default values
 	t.serverURLInput.SetText("https://your-server-address/api/operations")
 	t.directoryInput.SetText("/allowed/path")
 	t.filterInput.SetText("*.txt")
 	t.tokenInput.SetText("YOUR_AUTH_TOKEN")
 	t.clientIDInput.SetText("YOUR_CLIENT_ID")
-	
+
 	t.outputEditor.SingleLine = false
 	t.outputEditor.Submit = false
 	t.outputList.Axis = layout.Vertical
-	
+
 	return t
 }
 
@@ -122,7 +123,7 @@ func (t *Terminal) executeCommand() {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.appendOutput(fmt.Sprintf("$ Error: Failed to read response: %v", err))
 		return
@@ -147,16 +148,13 @@ func (t *Terminal) executeCommand() {
 
 func (t *Terminal) layout(gtx layout.Context) layout.Dimensions {
 	// Define colors
-	background := color.NRGBA{R: 40, G: 44, B: 52, A: 255}  // Dark background
+	background := color.NRGBA{R: 40, G: 44, B: 52, A: 255}   // Dark background
 	textColor := color.NRGBA{R: 171, G: 178, B: 191, A: 255} // Light text
+	borderColor := color.NRGBA{R: 80, G: 84, B: 92, A: 255}  // Border color
 
 	// Set theme colors
 	t.theme.ContrastBg = background
 	t.theme.Fg = textColor
-
-	// Create border
-	borderWidth := float32(1)
-	borderColor := color.NRGBA{R: 80, G: 84, B: 92, A: 255}
 
 	return layout.Stack{}.Layout(gtx,
 		layout.Expanded(func(gtx layout.Context) layout.Dimensions {
